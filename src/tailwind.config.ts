@@ -1,8 +1,13 @@
 import type { Config } from "tailwindcss";
-import { APP_COLORS } from "./constants/colors"; // Path check garnuhola (src vitra chha vane)
+import { APP_COLORS } from "./constants/colors"; // Path check: src/constants मा छ भने यस्तो हुन्छ
 
 const config: Config = {
-  content: ["./src/**/*.{js,ts,jsx,tsx}"],
+  // content मा app, components र src सबै समेट्नुपर्छ
+  content: [
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
   theme: {
     extend: {
       colors: {
@@ -13,7 +18,6 @@ const config: Config = {
         'text-muted': APP_COLORS.textMuted,
         success: APP_COLORS.success,
       },
-      // --- YO SECTION THAPIYO (For Loading Animation) ---
       keyframes: {
         shimmer: {
           '100%': { transform: 'translateX(100%)' },
@@ -22,7 +26,6 @@ const config: Config = {
       animation: {
         shimmer: 'shimmer 1.5s infinite',
       },
-      // -----------------------------------------------
     },
   },
   plugins: [],

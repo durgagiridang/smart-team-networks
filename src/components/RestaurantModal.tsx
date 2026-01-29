@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation"; // Router थपियो
 
 interface ModalProps {
   isOpen: boolean;
@@ -10,18 +11,18 @@ interface ModalProps {
 }
 
 export default function RestaurantModal({ isOpen, onClose, restaurantName }: ModalProps) {
-  const { data: session, status } = useSession(); // status le session check garchha
+  const { data: session, status } = useSession();
+  const router = useRouter(); // Redirect गर्नका लागि
   const [tableNo, setTableNo] = useState("T-1");
   const [guests, setGuests] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false); // Success UI को लागि state
 
   if (!isOpen) return null;
 
   const handleBooking = async () => {
-    // 1. Session load bhairā-chhha ki chhaina check garne
     if (status === "loading") return; 
 
-    // 2. Tapaile bhannu-bhāyēko naya login check logic
     if (!session?.user) {
       alert("Kripaya pahila Google bata Login garnuhos!");
       return;
@@ -34,7 +35,7 @@ export default function RestaurantModal({ isOpen, onClose, restaurantName }: Mod
       restaurantName: restaurantName,
       tableNo: tableNo,
       guestCount: guests,
-      service: "Restaurant", // Database ma filter garna sajilo hunchha
+      service: "Restaurant",
       status: "Pending",
       date: new Date()
     };
@@ -49,10 +50,7 @@ export default function RestaurantModal({ isOpen, onClose, restaurantName }: Mod
       const data = await res.json();
 
       if (data.success) {
-        alert("✅ Table Booked Successfully!");
-        onClose();
-        // Refresh garera profile ma count update garna
-        window.location.reload(); 
+        setShowSuccess(true); // Alert को सट्टा Success UI देखाउने
       } else {
         alert("❌ Error: " + (data.error || "Booking failed"));
       }
@@ -63,6 +61,33 @@ export default function RestaurantModal({ isOpen, onClose, restaurantName }: Mod
       setLoading(false);
     }
   };
+
+  // बुकिङ सफल भएपछिको 'Success' मेसेज बक्स
+  if (showSuccess) {
+    return (
+      <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+        <div className="bg-[#181818] border border-green-500/50 w-full max-w-sm rounded-3xl p-8 text-center shadow-2xl animate-in zoom-in duration-300">
+          <div className="w-20 h-20 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-black text-white mb-2">Booking Success!</h2>
+          <p className="text-gray-400 mb-8">तपाईँको टेबल सुरक्षित भयो। विवरण इतिहासमा हेर्नुहोस्।</p>
+          <button 
+            onClick={() => {
+              setShowSuccess(false);
+              onClose();
+              router.push('/history'); // हिस्ट्री पेजमा लैजाने
+            }}
+            className="w-full bg-green-600 hover:bg-green-500 text-white py-4 rounded-2xl font-black transition-all shadow-lg shadow-green-900/20"
+          >
+            Go to History
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">

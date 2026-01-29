@@ -1,61 +1,71 @@
-import { NextResponse } from "next/server";
-import connectToDatabase from "@/lib/mongodb";
-import mongoose from "mongoose";
+import { NextResponse } from 'next/server';
+import dbConnect from "@/lib/mongodb";
+import Booking from "@/models/Booking";
 
-// 1. Booking Schema Define garne (Model initialize garna)
-const BookingSchema = new mongoose.Schema({
-  userName: String,
-  userEmail: String,
-  restaurantName: { type: String, default: "Smart Nepali Khaja" },
-  service: { type: String, default: "Restaurant" },
-  tableNo: String,
-  guestCount: Number,
-  status: { type: String, default: "Confirmed" },
-  date: { type: Date, default: Date.now },
-});
-
-// Model lai initialize garne (Existing bhetiyena bhane naya banaune)
-const Booking = mongoose.models.Booking || mongoose.model("Booking", BookingSchema);
-
-// 2. GET: User ko email ko adhar ma bookings khojne (Profile ra History ko lagi)
-export async function GET(req: Request) {
+// --- GET: हिस्ट्री देखाउनका लागि ---
+export async function GET(request: Request) {
   try {
-    await connectToDatabase();
-    const { searchParams } = new URL(req.url);
+    await dbConnect();
+    const { searchParams } = new URL(request.url);
     const email = searchParams.get("email");
 
     if (!email) {
-      return NextResponse.json({ success: false, message: "Email required" }, { status: 400 });
+      return NextResponse.json({ success: false, data: [] });
     }
 
-    // User ko email ko adhar ma bookings khojne ra naya date anusar sort garne
-    const userBookings = await Booking.find({ userEmail: email }).sort({ date: -1 });
-    return NextResponse.json({ success: true, data: userBookings });
+    // तपाईँको डेटाबेसमा 'userEmail' फिल्ड छ, त्यसैले यहाँ userEmail प्रयोग गरौँ
+    const realBookings = await Booking.find({ userEmail: email }).sort({ date: -1 });
+    
+    return NextResponse.json({ success: true, data: realBookings });
   } catch (error) {
-    console.error("Detailed MongoDB Error:", error);
-    return NextResponse.json({ success: false, error: "Fetch failed" }, { status: 500 });
+    console.error("GET Error:", error);
+    return NextResponse.json({ success: false, data: [] });
   }
 }
 
-// 3. POST: Naya booking save garna (Modal bata confirm garda)
-export async function POST(req: Request) {
+// --- POST: नयाँ बुकिङ थप्नका लागि ---
+export async function POST(request: Request) {
   try {
-    await connectToDatabase();
-    const body = await req.json();
+    await dbConnect();
+    const body = await request.json();
 
-    // Data validation
-    if (!body.userEmail || !body.tableNo) {
-      return NextResponse.json({ success: false, error: "Missing required data" }, { status: 400 });
-    }
-
+    // तपाईँको MongoDB स्क्रिनसटमा भएका फिल्डहरूसँग मिल्दो नयाँ बुकिङ बनाउने
     const newBooking = await Booking.create({
-      ...body,
-      date: new Date(), // Booking gareko real time save garna
+      userName: body.userName || "Guest User",
+      userEmail: body.userEmail, // यो लगइन भएको युजरको इमेल हुनुपर्छ
+      restaurantName: body.restaurantName || "Smart Nepali Khaja",
+      service: "Restaurant",
+      tableNo: body.tableNo,
+      guestCount: Number(body.guestCount),
+      status: "Pending",
+      date: new Date()
     });
 
     return NextResponse.json({ success: true, data: newBooking });
   } catch (error) {
-    console.error("Booking POST Error:", error);
-    return NextResponse.json({ success: false, error: "Booking Failed" }, { status: 500 });
+    console.error("POST Error:", error);
+    // एरर मेसेज पठाउने जसले गर्दा फ्रन्टइन्डमा 'Server connection error' नआओस्
+    return NextResponse.json(
+      { success: false, message: "Database creation failed" }, 
+      { status: 500 }
+    );
+  }
+}
+
+// --- DELETE: बुकिङ क्यान्सल गर्नका लागि ---
+export async function DELETE(request: Request) {
+  try {
+    await dbConnect();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ success: false, message: "ID missing" }, { status: 400 });
+    }
+
+    await Booking.findByIdAndDelete(id);
+    return NextResponse.json({ success: true, message: "Booking cancelled" });
+  } catch (error) {
+    return NextResponse.json({ success: false, error: "Delete failed" }, { status: 500 });
   }
 }
