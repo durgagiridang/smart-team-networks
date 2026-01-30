@@ -1,11 +1,13 @@
-// app/api/api/orders/route.ts  ← path according to your folder
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import dbConnect from '@/lib/mongodb';
 import Order from '@/models/Order';
 
-/* ----------  POST  (new order)  ---------- */
+// यो थप्नाले Next.js ले डेटा क्यास (cache) गर्दैन र रियल-टाइम अपडेट दिन्छ
+export const dynamic = 'force-dynamic';
+
+/* ----------  POST (नयाँ अर्डर बनाउने)  ---------- */
 export async function POST(request: Request) {
   try {
     await dbConnect();
@@ -15,7 +17,6 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
-    // validation
     if (!body.items || !Array.isArray(body.items) || !body.totalAmount)
       return NextResponse.json({ success: false, error: 'Missing fields' }, { status: 400 });
 
@@ -35,12 +36,13 @@ export async function POST(request: Request) {
   }
 }
 
-/* ----------  GET  (Pending orders only for kitchen)  ---------- */
+/* ----------  GET (सबै अर्डरहरू तान्ने - हिस्ट्री र किचन दुवैका लागि)  ---------- */
 export async function GET() {
   try {
     await dbConnect();
 
-    const orders = await Order.find({ status: 'Pending' })
+    // यहाँ status: 'Pending' हटाइएको छ ताकि 'Ready' अर्डर पनि हिस्ट्रीमा आओस्
+    const orders = await Order.find({}) 
       .sort({ createdAt: -1 })
       .lean();
 

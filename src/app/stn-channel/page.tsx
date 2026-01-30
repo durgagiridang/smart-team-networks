@@ -2,5 +2,9 @@
 import STNChannel from "@/components/STNChannel";
 
 export default function STNChannelPage() {
-  return <STNChannel />;
+  return (
+    <STNChannel 
+      videoUrl="https://your-project.vercel.app/live.m3u8"  // ← Cloud HLS
+    />
+  );
 }
