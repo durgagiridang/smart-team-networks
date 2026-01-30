@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 
 export default function Broadcast() {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [streaming, setStreaming] = useState(false);
 
   useEffect(() => {
     const startCamera = async () => {

@@ -1,8 +1,12 @@
 "use client";
-import { useEffect, useRef } from "react";
-import Hls from "hls.js";
+import React, { useEffect, useRef } from 'react';
+import Hls from 'hls.js';
 
-export default function STNPlayer() {
+interface Props {
+  videoUrl?: string;
+}
+
+const STNChannel: React.FC<Props> = ({ videoUrl = "/live.m3u8" }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -11,16 +15,32 @@ export default function STNPlayer() {
 
     if (Hls.isSupported()) {
       const hls = new Hls();
-      hls.loadSource("/live.m3u8");
+      hls.loadSource(videoUrl);
       hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play().catch(() => {});
+      });
+      return () => hls.destroy();
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = "/live.m3u8";
+      video.src = videoUrl;
+      video.addEventListener("loadedmetadata", () => {
+        video.play().catch(() => {});
+      });
     }
-  }, []);
+  }, [videoUrl]);
 
   return (
-    <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black border border-white/10">
-      <video ref={videoRef} muted playsInline controls className="w-full h-full" />
+    <div className="w-full h-full bg-black relative">
+      <video
+        ref={videoRef}
+        className="w-full h-full"
+        controls
+        autoPlay
+        muted
+        playsInline
+      />
     </div>
   );
-}
+};
+
+export default STNChannel;
