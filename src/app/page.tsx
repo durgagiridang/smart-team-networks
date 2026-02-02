@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect } from 'react'
 import RestaurantModal from "@/components/RestaurantModal"; 
+// STNChannel भित्र भिडियो प्लेयर छ, यसले live.m3u8 तान्नुपर्छ
 import STNChannel from '@/components/STNChannel'; 
 import dynamic from 'next/dynamic'; 
 import ServiceCard from '@/components/Home/ServiceCard'
 import ServiceLoader from '@/components/Home/ServiceLoader';
 import Link from 'next/link';
-import { useSession, signOut } from "next-auth/react"; // Session र SignOut थपियो
+import { useSession, signOut } from "next-auth/react";
 
 const MapPicker = dynamic(() => import('@/components/Home/MapPicker'), { 
   ssr: false,
@@ -32,7 +33,7 @@ const services = [
 ];
 
 function Page() {
-  const { data: session } = useSession(); // लगइन युजरको डाटा तान्ने
+  const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [isRestModalOpen, setIsRestModalOpen] = useState(false);
@@ -81,7 +82,6 @@ function Page() {
   return (
     <div className="min-h-screen pb-24 bg-[#0F0F0F] text-white overflow-x-hidden">
       
-      {/* --- STN LOGO INTRO ANIMATION --- */}
       {isAnimating && (
         <div className="fixed inset-0 z-[200] bg-black flex flex-col items-center justify-center animate-in fade-in duration-500">
           <div className="relative">
@@ -96,12 +96,10 @@ function Page() {
         </div>
       )}
 
-      {/* Header Section */}
       <div className="p-6 pt-10 rounded-b-[30px] shadow-md bg-gradient-to-br from-cyan-900 via-black to-cyan-900 border-b border-cyan-500/20">
         <div className="flex justify-between items-center mb-2">
           <h1 className="text-cyan-400 text-2xl font-black italic tracking-tighter">Smart Team Networks</h1>
           
-          {/* User Profile & Logout Section */}
           {session && (
             <div className="flex items-center gap-3 bg-white/5 p-1 pr-3 rounded-full border border-white/10">
               <img 
@@ -129,7 +127,6 @@ function Page() {
         </div>
       </div>
 
-      {/* --- STN CHANNEL SECTION --- */}
       {showSTNChannel && !isAnimating && (
         <div className="p-4 animate-in slide-in-from-top duration-700">
            <div className="flex justify-between items-center mb-2 px-2">
@@ -141,11 +138,11 @@ function Page() {
                 CLOSE ×
               </button>
            </div>
+           {/* यहाँ भित्रको भिडियो src "http://localhost:8081/hls/live.m3u8" हुनुपर्छ */}
            <STNChannel />
         </div>
       )}
 
-      {/* Services Grid */}
       <div className="p-4">
         <h2 className="font-bold text-lg mb-4 px-1 text-white uppercase tracking-tighter flex items-center gap-2">
           <span className="w-1 h-5 bg-cyan-500 rounded-full shadow-[0_0_10px_cyan]"></span>
@@ -168,14 +165,12 @@ function Page() {
         )}
       </div>
 
-      {/* Restaurant Modal */}
       <RestaurantModal 
         isOpen={isRestModalOpen} 
         onClose={() => setIsRestModalOpen(false)} 
         restaurantName="Smart Nepali Khaja" 
       />
 
-      {/* --- BOTTOM NAVIGATION BAR --- */}
       <div className="fixed bottom-0 left-0 right-0 h-20 bg-black/80 backdrop-blur-2xl border-t border-white/5 flex justify-around items-center px-6 z-50">
         <Link href="/" className="flex flex-col items-center gap-1 text-cyan-400">
           <span className="text-2xl">🏠</span>
