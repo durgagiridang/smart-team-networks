@@ -1,64 +1,94 @@
-'use client'
-import { signIn, useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+"use client";
+import React, { useState } from 'react';
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // यदि युजर पहिले नै लगइन छ भने उसलाई होमपेजमा पठाइदिने
-  useEffect(() => {
-    if (status === "authenticated") {
-      router.push("/")
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const response = await fetch('http://localhost:8000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // ब्राउजरको मेमोरीमा युजर आईडी सेभ गर्ने (ताकि ड्यासबोर्डले थाहा पाओस्)
+        localStorage.setItem("userId", data.user.id);
+        localStorage.setItem("userRole", data.user.role);
+        
+        alert(`नमस्ते ${data.user.fullName}! STN मा स्वागत छ।`);
+        
+        // यदि व्यापारी हो भने ड्यासबोर्डमा पठाउने, नत्र होमपेजमा
+        if (data.user.role === 'merchant') {
+          router.push("/dashboard");
+        } else {
+          router.push("/");
+        }
+      } else {
+        alert(data.error);
+      }
+    } catch (err) {
+      alert("सर्भरसँग सम्पर्क हुन सकेन।");
+    } finally {
+      setLoading(false);
     }
-  }, [status, router])
-
-  if (status === "loading") {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-[#0F0F0F]">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-cyan-500"></div>
-      </div>
-    )
-  }
+  };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#0F0F0F] text-white p-6">
-      {/* Logo Section */}
-      <h1 className="text-5xl font-black italic tracking-tighter text-cyan-500 mb-2">
-        STN
-      </h1>
-      <p className="text-gray-400 text-xs tracking-[0.5em] mb-12 uppercase">Networks</p>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#0A0A0A] text-white p-6">
+      <h1 className="text-5xl font-black italic tracking-tighter text-cyan-500 mb-2">STN</h1>
+      <p className="text-gray-600 text-[10px] tracking-[0.5em] mb-10 uppercase font-bold">Smart Team Networks</p>
       
-      {/* Login Card */}
-      <div className="bg-gradient-to-b from-white/10 to-transparent p-10 rounded-[40px] border border-white/10 backdrop-blur-xl shadow-2xl text-center w-full max-w-sm">
-        <div className="mb-8">
-          <h2 className="text-2xl font-black italic">SWAAGAT CHA!</h2>
-          <p className="text-gray-500 text-sm mt-1">Smart Team Networks मा लगइन गर्नुहोस्</p>
-        </div>
+      <div className="bg-slate-900/40 p-10 rounded-[40px] border border-white/5 backdrop-blur-xl shadow-2xl w-full max-w-sm">
+        <h2 className="text-xl font-black mb-6 text-center uppercase tracking-widest">Login</h2>
+        
+        <form onSubmit={handleLogin} className="space-y-4">
+          <input 
+            type="email" 
+            placeholder="Email Address" 
+            required
+            className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-sm outline-none focus:border-cyan-500 transition-all"
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input 
+            type="password" 
+            placeholder="Password" 
+            required
+            className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-sm outline-none focus:border-cyan-500 transition-all"
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
-        <button 
-          // यहाँ मुख्य सुधार गरिएको छ: prompt: "select_account" थपिएको छ
-          onClick={() => signIn('google', { 
-            callbackUrl: '/', 
-            prompt: 'select_account' 
-          })}
-          className="flex items-center justify-center gap-4 bg-white text-black w-full py-4 rounded-2xl font-black hover:bg-cyan-500 hover:text-white transition-all duration-300 shadow-[0_10px_30px_rgba(255,255,255,0.1)] group"
-        >
-          <img src="https://www.google.com/favicon.ico" alt="google" className="w-5 h-5 group-hover:scale-125 transition-transform" />
-          CONTINUE WITH GOOGLE
-        </button>
+          <button 
+            type="submit"
+            disabled={loading}
+            className="w-full bg-cyan-600 text-white py-4 rounded-2xl font-black hover:bg-white hover:text-black transition-all duration-300 shadow-lg shadow-cyan-600/20 uppercase text-xs tracking-widest"
+          >
+            {loading ? "CHECKING..." : "ENTER NETWORK"}
+          </button>
+        </form>
 
-        <div className="mt-10 pt-8 border-t border-white/5">
-          <p className="text-cyan-500 font-black italic text-sm tracking-widest uppercase">
-            "Nepali ko Sath Nepali kai Bikash"
-          </p>
+        <div className="mt-8 text-center">
+          <p className="text-[10px] text-gray-500 uppercase font-bold mb-4">Or continue with</p>
+          <button className="flex items-center justify-center gap-2 w-full py-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all">
+             <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="G" />
+             <span className="text-[10px] font-black uppercase">Google</span>
+          </button>
         </div>
       </div>
 
-      <p className="mt-8 text-gray-700 text-[10px] font-bold tracking-widest uppercase">
-        Smart Team Networks v1.2
+      <p className="mt-8 text-cyan-900 text-[9px] font-black tracking-[0.3em] uppercase">
+        जो देखिन्छ त्यही बिक्छ
       </p>
     </div>
-  )
-}
+  );
+};
