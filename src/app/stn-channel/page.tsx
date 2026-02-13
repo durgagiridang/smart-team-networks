@@ -34,18 +34,15 @@ export default function STNChannelPage() {
     setCurrentTime(new Date().toLocaleTimeString());
     const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000);
 
-    // १. पहिले सकेट जडान गर्ने
-    const SERVER_URL = 'https://smart-team-networks.onrender.com';
-    const socket = io(SERVER_URL);
-    socketRef.current = socket; // यहाँ सुरक्षित रूपमा स्टोर गर्ने
-
-    // २. अब मात्र .on() चलाउने (पक्का भयो कि socket खाली छैन)
-    socket.on('broadcast-news', (updatedNews: string) => setNewsTicker(updatedNews));
-    socket.on('message', (message: ChatMessage) => setMessages(prev => [...prev, message]));
+    // ब्याकेन्ड कनेक्सन
+    socketRef.current = io('http://192.168.1.65:8000');
+    
+    socketRef.current.on('broadcast-news', (updatedNews: string) => setNewsTicker(updatedNews));
+    socketRef.current.on('message', (message: ChatMessage) => setMessages(prev => [...prev, message]));
     
     return () => {
       clearInterval(timer);
-      socket.disconnect(); // Cleanup गर्दा पनि सिधै भेरिएबल प्रयोग गर्ने
+      socketRef.current?.disconnect();
     };
   }, []);
 
