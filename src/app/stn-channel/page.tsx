@@ -1,22 +1,20 @@
 "use client";
 
+import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
 
 // Types
 type ChatMessage = {
   id: number;
   username: string;
   text: string;
-  type: 'user' | 'merchant' | 'system';
   timestamp: string;
 };
 
 export default function STNChannelPage() {
   const router = useRouter();
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const socketRef = useRef<Socket | null>(null);
   
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -26,17 +24,35 @@ export default function STNChannelPage() {
   const [currentTime, setCurrentTime] = useState<string>("");
 
   useEffect(() => {
+    // १. घडी अपडेट गर्ने
     setCurrentTime(new Date().toLocaleTimeString());
     const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000);
 
-    socketRef.current = io('http://192.168.1.65:8000');
-    
-    socketRef.current.on('broadcast-news', (updatedNews: string) => setNewsTicker(updatedNews));
-    socketRef.current.on('message', (message: ChatMessage) => setMessages(prev => [...prev, message]));
+    // २. पुराना म्यासेजहरू Supabase बाट लोड गर्ने
+    const fetchMessages = async () => {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .order('timestamp', { ascending: true });
+      
+      if (data) setMessages(data);
+    };
+    fetchMessages();
+
+    // ३. Real-time Subscription: नयाँ म्यासेज आउने बित्तिकै स्क्रिनमा देखाउने
+    const channel = supabase
+      .channel('public:messages')
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'messages' }, 
+        (payload) => {
+          setMessages((prev) => [...prev, payload.new as ChatMessage]);
+        }
+      )
+      .subscribe();
     
     return () => {
       clearInterval(timer);
-      socketRef.current?.disconnect();
+      supabase.removeChannel(channel);
     };
   }, []);
 
@@ -46,11 +62,20 @@ export default function STNChannelPage() {
 
   const joinChat = () => { if (username.trim()) setIsJoined(true); };
   
-  const sendMessage = (e: React.FormEvent) => {
+  const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !isJoined) return;
-    socketRef.current?.emit('send-message', { text: newMessage, username });
-    setNewMessage('');
+
+    // ४. Supabase मा म्यासेज पठाउने
+    const { error } = await supabase
+      .from('messages')
+      .insert([{ username, text: newMessage }]);
+
+    if (error) {
+      console.error("Error sending message:", error.message);
+    } else {
+      setNewMessage('');
+    }
   };
 
   return (
@@ -64,7 +89,7 @@ export default function STNChannelPage() {
           </button>
           
           <div className="flex items-center gap-3">
-            <div className="w-20 h-20 rounded-full border border-cyan-500/30 overflow-hidden bg-slate-900 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
+            <div className="w-12 h-12 rounded-full border border-cyan-500/30 overflow-hidden bg-slate-900">
                 <img src="/logo.png" alt="STN Logo" className="w-full h-full object-contain p-1" onError={(e) => { e.currentTarget.src = "https://ui-avatars.com/api/?name=STN&background=06b6d4&color=fff"; }} />
             </div>
             <div className="flex flex-col">
@@ -83,7 +108,7 @@ export default function STNChannelPage() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col lg:flex-row overflow-hidden text-white">
+      <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         
         {/* VIDEO SECTION */}
         <div className="flex-1 relative bg-slate-950 flex flex-col">
@@ -99,9 +124,9 @@ export default function STNChannelPage() {
           </div>
 
           {/* Featured Product */}
-          <div className="h-32 bg-gradient-to-t from-black to-slate-950 p-4 flex gap-4 overflow-x-auto scrollbar-hide border-t border-white/5 shrink-0">
+          <div className="h-28 bg-gradient-to-t from-black to-slate-950 p-4 flex gap-4 overflow-x-auto scrollbar-hide border-t border-white/5 shrink-0">
             <div className="min-w-[240px] bg-white/5 backdrop-blur-2xl border border-white/10 p-3 rounded-2xl flex items-center gap-3 group hover:border-cyan-500/5 transition-all text-white">
-                <div className="w-14 h-14 bg-slate-800 rounded-xl flex items-center justify-center text-2xl">👗</div>
+                <div className="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center text-xl">👗</div>
                 <div>
                   <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Today's Hot Deal</p>
                   <p className="text-xs font-black text-white">Cotton Kurti - New</p>
@@ -113,20 +138,31 @@ export default function STNChannelPage() {
         </div>
 
         {/* CHAT SECTION */}
-        <div className="w-full lg:w-[380px] bg-slate-950 border-l border-white/5 flex flex-col shrink-0 text-white">
-          <div className="p-4 border-b border-white/5 bg-slate-900/30 flex justify-between items-center text-white">
+        <div className="w-full lg:w-[380px] bg-slate-950 border-l border-white/5 flex flex-col shrink-0">
+          <div className="p-4 border-b border-white/5 bg-slate-900/30 flex justify-between items-center">
             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 italic">Live Interaction</h3>
             <span className="text-[10px] text-green-500 font-black flex items-center gap-1.5 uppercase">
                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> Online
             </span>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 text-white">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {!isJoined ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-6">
                 <div className="w-16 h-16 bg-cyan-500/10 rounded-full flex items-center justify-center text-2xl">💬</div>
-                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Your Name..." className="w-full bg-slate-900 border border-white/10 p-4 rounded-xl text-center text-sm outline-none focus:border-cyan-500 text-white" />
-                <button onClick={joinChat} className="w-full bg-white text-black p-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-cyan-500 transition-all">Join Chat</button>
+                <input 
+                  type="text" 
+                  value={username} 
+                  onChange={(e) => setUsername(e.target.value)} 
+                  placeholder="Your Name..." 
+                  className="w-full bg-slate-900 border border-white/10 p-4 rounded-xl text-center text-sm outline-none focus:border-cyan-500 text-white" 
+                />
+                <button 
+                  onClick={joinChat} 
+                  className="w-full bg-white text-black p-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-cyan-500 transition-all"
+                >
+                  Join Chat
+                </button>
               </div>
             ) : (
               <div className="space-y-4">
@@ -142,10 +178,16 @@ export default function STNChannelPage() {
           </div>
 
           {isJoined && (
-            <form onSubmit={sendMessage} className="p-4 bg-slate-900/50 border-t border-white/5 text-white">
-              <div className="relative text-white">
-                <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Ask merchant..." className="w-full bg-black border border-white/10 p-3 rounded-xl text-xs outline-none focus:border-cyan-500 pr-12 text-white" />
-                <button type="submit" className="absolute right-2.5 top-2 bg-cyan-600 p-1.5 rounded-lg text-xs">GO</button>
+            <form onSubmit={sendMessage} className="p-4 bg-slate-900/50 border-t border-white/5">
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={newMessage} 
+                  onChange={(e) => setNewMessage(e.target.value)} 
+                  placeholder="Type a message..." 
+                  className="w-full bg-black border border-white/10 p-3 rounded-xl text-xs outline-none focus:border-cyan-500 pr-12 text-white" 
+                />
+                <button type="submit" className="absolute right-2.5 top-2 bg-cyan-600 p-1.5 rounded-lg text-xs font-bold text-black">SEND</button>
               </div>
             </form>
           )}
@@ -153,10 +195,10 @@ export default function STNChannelPage() {
       </main>
 
       {/* Footer News Marquee */}
-      <footer className="h-12 bg-red-700 border-t-2 border-yellow-500 flex items-center overflow-hidden shrink-0 relative">
-        <div className="bg-yellow-500 text-black px-4 h-full flex items-center font-black italic text-xs z-10 shadow-xl">NEWS FEED</div>
+      <footer className="h-10 bg-red-700 border-t-2 border-yellow-500 flex items-center overflow-hidden shrink-0 relative">
+        <div className="bg-yellow-500 text-black px-4 h-full flex items-center font-black italic text-[10px] z-10 shadow-xl">NEWS FEED</div>
         <div className="flex-1 whitespace-nowrap overflow-hidden">
-          <div className="animate-marquee inline-block text-xl font-black italic uppercase py-3">
+          <div className="animate-marquee inline-block text-lg font-black italic uppercase py-3">
             {newsTicker} &nbsp;&nbsp; • &nbsp;&nbsp; {newsTicker}
           </div>
         </div>
