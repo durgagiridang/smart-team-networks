@@ -86,9 +86,14 @@ export default function STNChannelPage() {
           </button>
           
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full border border-cyan-500/30 overflow-hidden bg-slate-900">
-                <img src="/logo.png" alt="STN Logo" className="w-full h-full object-contain p-1" onError={(e) => { e.currentTarget.src = "https://ui-avatars.com/api/?name=STN&background=06b6d4&color=fff"; }} />
-            </div>
+            {/* ठूलो साइजको लोगो (w-20 h-20) */}
+      <div className="w-20 h-20 rounded-full border-2 border-cyan-500/50 overflow-hidden bg-slate-900 shadow-[0_0_15px_rgba(6,182,212,0.4)]">
+            <img 
+              src="/logo.png" 
+              alt="STN Logo" 
+              className="w-full h-full object-contain p-1" 
+              onError={(e) => { e.currentTarget.src = "https://ui-avatars.com/api/?name=STN&background=06b6d4&color=fff"; }} />
+        </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
                   <span className="bg-red-600 px-2 py-0.5 rounded-sm text-[8px] font-black animate-pulse">LIVE</span>
