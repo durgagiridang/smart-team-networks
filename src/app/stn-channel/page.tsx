@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import Hls from 'hls.js';
 
 // Types
 type ChatMessage = {
@@ -16,12 +15,9 @@ type ChatMessage = {
 
 export default function STNChannelPage() {
   const router = useRouter();
-  const videoRef = useRef<HTMLVideoElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<Socket | null>(null);
   
-  // सुरुमै आवाज आउने बनाउन false राखिएको छ
-  const [isMuted, setIsMuted] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [username, setUsername] = useState('');
@@ -29,12 +25,10 @@ export default function STNChannelPage() {
   const [newsTicker, setNewsTicker] = useState("🚀 STN CHANNEL: नेपालकै पहिलो AI-Driven लाइभ सपिङ प्लेटफर्ममा स्वागत छ! • पसलको लाइभ दृश्य हेर्दै सिधै सामान अर्डर गर्नुहोस् • Smart Team Networks 🔥");
   const [currentTime, setCurrentTime] = useState<string>("");
 
-  // १. समय र सकेट जडान
   useEffect(() => {
     setCurrentTime(new Date().toLocaleTimeString());
     const timer = setInterval(() => setCurrentTime(new Date().toLocaleTimeString()), 1000);
 
-    // ब्याकेन्ड कनेक्सन
     socketRef.current = io('http://192.168.1.65:8000');
     
     socketRef.current.on('broadcast-news', (updatedNews: string) => setNewsTicker(updatedNews));
@@ -46,42 +40,6 @@ export default function STNChannelPage() {
     };
   }, []);
 
-  // २. HLS Player Setup
-  useEffect(() => {
-    let hls: Hls;
-    const streamUrl = 'http://192.168.1.65:8000/test-video';
-
-    if (videoRef.current) {
-      if (Hls.isSupported()) {
-        hls = new Hls({ 
-            maxBufferLength: 10, 
-            lowLatencyMode: true,
-            enableWorker: true,
-        });
-        hls.loadSource(streamUrl);
-        hls.attachMedia(videoRef.current);
-        
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            videoRef.current?.play().catch(() => console.log("Play blocked"));
-        });
-
-        hls.on(Hls.Events.ERROR, (event, data) => {
-          if (data.fatal) {
-            switch (data.type) {
-              case Hls.ErrorTypes.NETWORK_ERROR: hls.startLoad(); break;
-              case Hls.ErrorTypes.MEDIA_ERROR: hls.recoverMediaError(); break;
-              default: hls.destroy(); break;
-            }
-          }
-        });
-      } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
-        videoRef.current.src = streamUrl;
-      }
-    }
-    return () => hls?.destroy();
-  }, []);
-
-  // ३. च्याट स्क्रोलिङ
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -98,25 +56,16 @@ export default function STNChannelPage() {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col font-sans overflow-hidden">
       
-      {/* Header - Logo थपिएको र डिजाइन सुधारिएको */}
+      {/* Header */}
       <header className="bg-black/95 border-b border-white/5 p-4 z-50 backdrop-blur-md shrink-0">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <button 
-            onClick={() => router.push('/')} 
-            className="text-cyan-500 font-black text-[10px] uppercase tracking-widest hover:text-white transition-all flex items-center gap-2"
-          >
+          <button onClick={() => router.push('/')} className="text-cyan-500 font-black text-[10px] uppercase tracking-widest hover:text-white transition-all flex items-center gap-2">
             <span className="text-lg">←</span> Exit
           </button>
           
           <div className="flex items-center gap-3">
-            {/* Logo Container */}
             <div className="w-20 h-20 rounded-full border border-cyan-500/30 overflow-hidden bg-slate-900 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
-                <img 
-                  src="/logo.png" 
-                  alt="STN Logo" 
-                  className="w-full h-full object-contain p-1"
-                  onError={(e) => { e.currentTarget.src = "https://ui-avatars.com/api/?name=STN&background=06b6d4&color=fff"; }}
-                />
+                <img src="/logo.png" alt="STN Logo" className="w-full h-full object-contain p-1" onError={(e) => { e.currentTarget.src = "https://ui-avatars.com/api/?name=STN&background=06b6d4&color=fff"; }} />
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
@@ -139,24 +88,14 @@ export default function STNChannelPage() {
         {/* VIDEO SECTION */}
         <div className="flex-1 relative bg-slate-950 flex flex-col">
           <div className="flex-1 relative flex items-center justify-center bg-black overflow-hidden">
-            <video 
-              ref={videoRef} 
-              className="w-full h-full max-h-full object-contain" 
-              controls      // अडियो कन्ट्रोलको लागि अनिवार्य
-              muted={isMuted} 
-              playsInline 
-              autoPlay 
-            />
-            
-            {/* Unmute/Mute Toggle */}
-            <div className="absolute bottom-6 left-6 flex gap-3 z-20">
-                <button 
-                  onClick={() => setIsMuted(!isMuted)} 
-                  className="bg-black/60 backdrop-blur-xl border border-white/10 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase hover:bg-cyan-500 transition-all shadow-2xl"
-                >
-                  {isMuted ? '🔇 Unmute Sound' : '🔊 Audio Active'}
-                </button>
-            </div>
+            <iframe 
+              className="w-full h-full aspect-video"
+              src="https://www.youtube.com/embed/xSc7AcHeYAE?autoplay=1&mute=0" 
+              title="STN LIVE"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            ></iframe>
           </div>
 
           {/* Featured Product */}
@@ -186,22 +125,14 @@ export default function STNChannelPage() {
             {!isJoined ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-6">
                 <div className="w-16 h-16 bg-cyan-500/10 rounded-full flex items-center justify-center text-2xl">💬</div>
-                <input 
-                  type="text" 
-                  value={username} 
-                  onChange={(e) => setUsername(e.target.value)} 
-                  placeholder="Your Name..." 
-                  className="w-full bg-slate-900 border border-white/10 p-4 rounded-xl text-center text-sm outline-none focus:border-cyan-500 text-white" 
-                />
+                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Your Name..." className="w-full bg-slate-900 border border-white/10 p-4 rounded-xl text-center text-sm outline-none focus:border-cyan-500 text-white" />
                 <button onClick={joinChat} className="w-full bg-white text-black p-4 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-cyan-500 transition-all">Join Chat</button>
               </div>
             ) : (
               <div className="space-y-4">
                 {messages.map((msg, i) => (
                     <div key={i} className={`p-3 rounded-xl text-xs ${msg.username === 'Merchant' ? 'bg-cyan-500/10 border border-cyan-500/20' : 'bg-white/5 border border-white/5'}`}>
-                      <span className={`font-black uppercase text-[10px] block mb-1 tracking-wider ${msg.username === 'Merchant' ? 'text-cyan-400' : 'text-slate-500'}`}>
-                        {msg.username}
-                      </span>
+                      <span className={`font-black uppercase text-[10px] block mb-1 tracking-wider ${msg.username === 'Merchant' ? 'text-cyan-400' : 'text-slate-500'}`}>{msg.username}</span>
                       <p className="text-slate-200 leading-relaxed">{msg.text}</p>
                     </div>
                 ))}
@@ -213,13 +144,7 @@ export default function STNChannelPage() {
           {isJoined && (
             <form onSubmit={sendMessage} className="p-4 bg-slate-900/50 border-t border-white/5 text-white">
               <div className="relative text-white">
-                <input 
-                  type="text" 
-                  value={newMessage} 
-                  onChange={(e) => setNewMessage(e.target.value)} 
-                  placeholder="Ask merchant anything..." 
-                  className="w-full bg-black border border-white/10 p-3 rounded-xl text-xs outline-none focus:border-cyan-500 pr-12 text-white" 
-                />
+                <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Ask merchant..." className="w-full bg-black border border-white/10 p-3 rounded-xl text-xs outline-none focus:border-cyan-500 pr-12 text-white" />
                 <button type="submit" className="absolute right-2.5 top-2 bg-cyan-600 p-1.5 rounded-lg text-xs">GO</button>
               </div>
             </form>
@@ -228,18 +153,18 @@ export default function STNChannelPage() {
       </main>
 
       {/* Footer News Marquee */}
-      <footer className="h-12 bg-red-700 border-t-2 border-yellow-500 flex items-center overflow-hidden shrink-0">
+      <footer className="h-12 bg-red-700 border-t-2 border-yellow-500 flex items-center overflow-hidden shrink-0 relative">
         <div className="bg-yellow-500 text-black px-4 h-full flex items-center font-black italic text-xs z-10 shadow-xl">NEWS FEED</div>
         <div className="flex-1 whitespace-nowrap overflow-hidden">
           <div className="animate-marquee inline-block text-xl font-black italic uppercase py-3">
             {newsTicker} &nbsp;&nbsp; • &nbsp;&nbsp; {newsTicker}
           </div>
         </div>
-        <style jsx>{`
-          .animate-marquee { animation: marquee 30s linear infinite; }
-          @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-        `}</style>
       </footer>
+      <style jsx>{`
+        .animate-marquee { animation: marquee 30s linear infinite; }
+        @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+      `}</style>
     </div>
   );
 }
