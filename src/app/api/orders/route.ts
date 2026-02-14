@@ -4,30 +4,32 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import dbConnect from '@/lib/mongodb';
 import Order from '@/models/Order';
 
-// यो थप्नाले Next.js ले डेटा क्यास (cache) गर्दैन र रियल-टाइम अपडेट दिन्छ
 export const dynamic = 'force-dynamic';
 
 /* ----------  POST (नयाँ अर्डर बनाउने)  ---------- */
 export async function POST(request: Request) {
   try {
     await dbConnect();
-
     const session = await getServerSession(authOptions);
     const userEmail = session?.user?.email || 'walk-in@customer.com';
 
     const body = await request.json();
 
-    if (!body.items || !Array.isArray(body.items) || !body.totalAmount)
-      return NextResponse.json({ success: false, error: 'Missing fields' }, { status: 400 });
-
-    const newOrder = await Order.create({
+    // STN Channel बाट आएको सरल अर्डरको लागि लजिक
+    const orderData = {
       userEmail,
-      items: body.items,
-      totalAmount: body.totalAmount,
+      customerName: body.customerName || "Anonymous",
+      phone: body.phone || "",
+      productName: body.productName || "General Product",
+      // पुराना Restaurant अर्डरहरूका लागि
+      items: body.items || [], 
+      totalAmount: body.totalAmount || 0,
+      orderType: body.orderType || 'Live-Order',
       status: 'Pending',
-      orderType: body.orderType || 'Dine-In',
       createdAt: new Date(),
-    });
+    };
+
+    const newOrder = await Order.create(orderData);
 
     return NextResponse.json({ success: true, data: newOrder }, { status: 201 });
   } catch (err: any) {
@@ -36,16 +38,11 @@ export async function POST(request: Request) {
   }
 }
 
-/* ----------  GET (सबै अर्डरहरू तान्ने - हिस्ट्री र किचन दुवैका लागि)  ---------- */
+/* ----------  GET (सबै अर्डरहरू तान्ने)  ---------- */
 export async function GET() {
   try {
     await dbConnect();
-
-    // यहाँ status: 'Pending' हटाइएको छ ताकि 'Ready' अर्डर पनि हिस्ट्रीमा आओस्
-    const orders = await Order.find({}) 
-      .sort({ createdAt: -1 })
-      .lean();
-
+    const orders = await Order.find({}).sort({ createdAt: -1 }).lean();
     return NextResponse.json({ success: true, data: orders });
   } catch (err: any) {
     console.error('GET /api/orders error:', err.message);

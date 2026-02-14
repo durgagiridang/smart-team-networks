@@ -4,25 +4,27 @@ import Order from "@/models/Order";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: Promise<{ id: string }> } // यहाँ Promise थप्नुहोस्
+  { params }: { params: Promise<{ id: string }> } 
 ) {
   try {
     await dbConnect();
 
-    // १. params लाई await गरेर id निकाल्ने (Next.js 15 को लागि अनिवार्य)
-    const { id } = await params; 
+    // १. params लाई await गर्ने (Next.js 15+ को नियम)
+    const resolvedParams = await params;
+    const id = resolvedParams.id;
     
-    // २. Body बाट स्टेटस लिने
+    // २. Request body बाट डेटा लिने
     const { status } = await req.json();
 
     if (!id) {
       return NextResponse.json({ error: "Order ID is required" }, { status: 400 });
     }
 
+    // ३. डेटाबेस अपडेट गर्ने
     const updatedOrder = await Order.findByIdAndUpdate(
       id,
       { status: status },
-      { new: true }
+      { new: true } // यसले अपडेट भइसकेपछिको नयाँ डेटा दिन्छ
     );
 
     if (!updatedOrder) {
