@@ -11,6 +11,15 @@ type ChatMessage = {
   timestamp: string;
 };
 
+// १. सामानहरूको लिष्ट (Products List)
+const products = [
+  { id: 1, name: "Cotton Kurti - New", price: "1,550", emoji: "👗" },
+  { id: 2, name: "Silk Saree - Special", price: "4,200", emoji: "👘" },
+  { id: 3, name: "Designer Lehenga", price: "8,500", emoji: "💃" },
+  { id: 4, name: "Casual Summer Dress", price: "2,100", emoji: "👗" },
+  { id: 5, name: "Party Wear Gown", price: "5,500", emoji: "👗" },
+];
+
 export default function STNChannelPage() {
   const router = useRouter();
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -21,8 +30,9 @@ export default function STNChannelPage() {
   const [isJoined, setIsJoined] = useState(false);
   const [currentTime, setCurrentTime] = useState<string>("");
 
-  // --- अर्डर स्टेटहरू ---
+  // अर्डर स्टेटहरू
   const [showOrderForm, setShowOrderForm] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(products[0]); // छानिएको सामान
   const [orderData, setOrderData] = useState({ name: '', phone: '' });
   const [isOrdering, setIsOrdering] = useState(false);
 
@@ -72,7 +82,7 @@ export default function STNChannelPage() {
     } catch (error) { console.error("Error sending message"); }
   };
 
-  // --- अर्डर पठाउने फङ्सन ---
+  // अर्डर पठाउने फङ्सन (Dynamic)
   const submitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!orderData.name || !orderData.phone) return alert("कृपया नाम र फोन नम्बर लेख्नुहोस्!");
@@ -85,13 +95,13 @@ export default function STNChannelPage() {
         body: JSON.stringify({
           customerName: orderData.name,
           phone: orderData.phone,
-          productName: "Cotton Kurti - New", // यो सामानको नाम पछि डाइनामिक बनाउन सकिन्छ
+          productName: selectedProduct.name, // अब जुन छानियो त्यही जान्छ
           orderType: 'Live-Order'
         }),
       });
 
       if (res.ok) {
-        alert("बधाई छ! तपाईँको अर्डर सफल भयो। हामी चाँडै सम्पर्क गर्नेछौँ।");
+        alert(`बधाई छ! ${selectedProduct.name} को अर्डर सफल भयो।`);
         setShowOrderForm(false);
         setOrderData({ name: '', phone: '' });
       }
@@ -134,22 +144,29 @@ export default function STNChannelPage() {
             <iframe className="w-full h-full aspect-video" src="https://www.youtube.com/embed/xSc7AcHeYAE?autoplay=1&mute=0" title="STN LIVE" frameBorder="0" allowFullScreen></iframe>
           </div>
           
-          {/* Featured Product Section */}
-          <div className="h-28 bg-gradient-to-t from-black to-slate-950 p-4 flex gap-4 overflow-x-auto border-t border-white/5 shrink-0 scrollbar-hide">
-            <div className="min-w-[280px] bg-white/5 border border-white/10 p-3 rounded-2xl flex items-center gap-3 text-white">
-                <div className="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center text-xl">👗</div>
-                <div>
-                  <p className="text-[9px] text-slate-400 font-bold">Today's Hot Deal</p>
-                  <p className="text-xs font-black">Cotton Kurti - New</p>
-                  <p className="text-cyan-400 text-xs font-black">Rs. 1,550</p>
-                </div>
-                <button 
-                  onClick={() => setShowOrderForm(true)}
-                  className="bg-cyan-600 text-black text-[9px] font-black px-4 py-2 rounded-lg ml-auto hover:bg-white transition-all"
-                >
-                  ORDER NOW
-                </button>
-            </div>
+          {/* २. PRODUCT SLIDER (यहाँ सामानहरू सार्न मिल्ने बनाइएको छ) */}
+          <div className="h-32 bg-gradient-to-t from-black to-slate-950 p-4 flex gap-4 overflow-x-auto border-t border-white/5 shrink-0 scrollbar-hide">
+            {products.map((product) => (
+              <div key={product.id} className="min-w-[260px] bg-white/5 border border-white/10 p-3 rounded-2xl flex items-center gap-3 text-white hover:border-cyan-500/50 transition-all group">
+                  <div className="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                    {product.emoji}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Today's Hot Deal</p>
+                    <p className="text-xs font-black truncate w-32">{product.name}</p>
+                    <p className="text-cyan-400 text-xs font-black italic">Rs. {product.price}</p>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setSelectedProduct(product);
+                      setShowOrderForm(true);
+                    }}
+                    className="bg-cyan-600 text-black text-[9px] font-black px-4 py-2 rounded-lg ml-auto hover:bg-white transition-all shadow-lg"
+                  >
+                    ORDER
+                  </button>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -203,10 +220,10 @@ export default function STNChannelPage() {
             </div>
             <form onSubmit={submitOrder} className="p-6 space-y-4">
               <div className="flex items-center gap-4 p-3 bg-white/5 rounded-2xl mb-4 text-white">
-                <span className="text-2xl">👗</span>
+                <span className="text-2xl">{selectedProduct.emoji}</span>
                 <div>
-                  <p className="text-xs font-bold">Cotton Kurti - New</p>
-                  <p className="text-cyan-400 font-black">Rs. 1,550</p>
+                  <p className="text-xs font-bold">{selectedProduct.name}</p>
+                  <p className="text-cyan-400 font-black">Rs. {selectedProduct.price}</p>
                 </div>
               </div>
               <div>
@@ -238,7 +255,6 @@ export default function STNChannelPage() {
               >
                 {isOrdering ? 'Ordering...' : 'Confirm Order'}
               </button>
-              <p className="text-[9px] text-center text-slate-500">हामी तपाईंलाई अर्डर पुष्टि गर्न फोन गर्नेछौँ।</p>
             </form>
           </div>
         </div>
