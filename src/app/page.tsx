@@ -39,7 +39,6 @@ function Page() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    // १. लगइन चेक गर्ने
     const userId = localStorage.getItem("userId");
     setIsLoggedIn(!!userId);
 
@@ -47,10 +46,8 @@ function Page() {
 
     const fetchMerchants = async () => {
       try {
-        // ब्राउजरको hostname बाट आफैँ सही IP एड्रेस पत्ता लगाउने
         const currentHost = window.location.hostname;
         const backendUrl = `http://${currentHost}:8000/api/merchants_list`;
-
         const response = await fetch(backendUrl, { cache: 'no-store' });
         const data = await response.json();
         
@@ -59,7 +56,6 @@ function Page() {
         }
       } catch (err) {
         console.error("❌ ब्याकइन्ड अफलाइन छ...");
-        // सर्भर नचल्दा देखिने नमुना डेटा
         setMerchants([{
           _id: 'temp-1',
           business_name: 'Smart Team Fashion',
@@ -75,7 +71,6 @@ function Page() {
     return () => clearTimeout(timer);
   }, []);
 
-  // २. WhatsApp अर्डर ह्यान्डल गर्ने फङ्सन
   const handleOrder = (phoneNumber: string, shopName: string) => {
     const userId = localStorage.getItem("userId");
     if (!userId) {
@@ -138,28 +133,42 @@ function Page() {
         )}
       </div>
 
-      {/* Live Shopping Section */}
-      <div className="p-4 mt-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="font-black text-xl text-white uppercase tracking-tighter flex items-center gap-3 italic">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
-            </span>
-            Live Shopping 📹
-          </h2>
+      {/* CCTV Container - यहाँ सुधार गरिएको छ */}
+      <div className="p-4 mt-2">
+        <h2 className="font-black text-xl text-white uppercase tracking-tighter flex items-center gap-3 italic mb-4">
+          <span className="relative flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600"></span>
+          </span>
+          Live Showroom 📹
+        </h2>
+        <div className="relative h-64 bg-black rounded-[35px] overflow-hidden border border-white/10 shadow-2xl">
+          <div className="absolute top-4 left-4 z-10">
+            <span className="bg-red-600 text-[9px] px-2 py-1 rounded-md font-black uppercase tracking-tighter">LIVE RED</span>
+          </div>
+          
+          <img 
+            src="http://192.168.1.65:8080/video" 
+            className="w-full h-full object-cover"
+            alt="Live Shop Feed"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = "https://via.placeholder.com/640x360/000000/00FFFF?text=Camera+Offline";
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0F0F0F] via-transparent to-transparent"></div>
         </div>
+      </div>
 
+      {/* Live Shopping Section */}
+      <div className="p-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {merchants.map((merchant) => (
             <div 
               key={merchant._id}
               className="group relative bg-slate-900/40 rounded-[35px] border border-white/5 overflow-hidden transition-all hover:border-cyan-500/40 shadow-2xl"
             >
+              {/* Individual Merchant CCTV Placeholder */}
               <div className="relative h-64 bg-black">
-                <div className="absolute top-4 left-4 z-10 flex gap-2">
-                  <span className="bg-red-600 text-[9px] px-2 py-1 rounded-md font-black uppercase tracking-tighter shadow-lg">LIVE FEED</span>
-                </div>
                 <div className="w-full h-full bg-gradient-to-br from-gray-800 to-black flex items-center justify-center italic text-gray-700 text-xs">
                     Camera Connecting...
                 </div>
