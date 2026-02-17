@@ -1,16 +1,16 @@
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 
-// १. सिधै यहीँ डाटाबेस जडान गर्ने फङ्सन
-const MONGODB_URI = process.env.MONGODB_URI!;
+// १. सिधै लिङ्क राख्ने (यसले "undefined" हुने समस्या हटाउँछ)
+const MONGODB_URI = "mongodb+srv://channelstn97_db_user:StnStore2026@cluster0.vot2ymv.mongodb.net/SmartTeamNetworks";
 
 async function connectToDatabase() {
   if (mongoose.connection.readyState >= 1) return;
   try {
     await mongoose.connect(MONGODB_URI);
-    console.log("MongoDB Connected for Chat");
+    console.log("✅ MongoDB Connected for Chat");
   } catch (err) {
-    console.error("MongoDB Connection Error:", err);
+    console.error("❌ MongoDB Connection Error:", err);
   }
 }
 

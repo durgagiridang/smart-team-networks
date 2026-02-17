@@ -21,7 +21,7 @@ io.on("connection", (socket) => {
 });
 
 // २. MongoDB जडान
-const MONGODB_URI = "mongodb+srv://channelstn97_db_user:durgaprasadgiri@cluster0.vot2ymv.mongodb.net/SmartTeamNetworks";
+const  MONGODB_URI = "mongodb+srv://channelstn97_db_user:StnStore2026@cluster0.vot2ymv.mongodb.net/SmartTeamNetworks";
 mongoose.connect(MONGODB_URI)
   .then(() => console.log("✅ STN DATABASE CONNECTED"))
   .catch(err => console.error("❌ DB CONNECTION ERROR:", err));

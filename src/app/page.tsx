@@ -39,7 +39,7 @@ function Page() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    // १. लगइन चेक गर्ने (Custom Login अनुसार)
+    // १. लगइन चेक गर्ने
     const userId = localStorage.getItem("userId");
     setIsLoggedIn(!!userId);
 
@@ -47,21 +47,25 @@ function Page() {
 
     const fetchMerchants = async () => {
       try {
-        // यसलाई पनि सच्याउनुहोस्:
-const response = await fetch('http://192.168.1.65:8000/api/merchants_list');
+        // ब्राउजरको hostname बाट आफैँ सही IP एड्रेस पत्ता लगाउने
+        const currentHost = window.location.hostname;
+        const backendUrl = `http://${currentHost}:8000/api/merchants_list`;
+
+        const response = await fetch(backendUrl, { cache: 'no-store' });
         const data = await response.json();
+        
         if (data && data.length > 0) {
           setMerchants(data);
         }
       } catch (err) {
         console.error("❌ ब्याकइन्ड अफलाइन छ...");
-        // डेटा नहुँदा नमुना डेटा
+        // सर्भर नचल्दा देखिने नमुना डेटा
         setMerchants([{
           _id: 'temp-1',
           business_name: 'Smart Team Fashion',
           city: 'Dang',
           category: 'Fashion & Boutique',
-          phone: '9800000000', // नमुना नम्बर
+          phone: '9847852880',
           cctv_url: ''
         }]);
       }
@@ -73,7 +77,6 @@ const response = await fetch('http://192.168.1.65:8000/api/merchants_list');
 
   // २. WhatsApp अर्डर ह्यान्डल गर्ने फङ्सन
   const handleOrder = (phoneNumber: string, shopName: string) => {
-    // लगइन नभएको खण्डमा दर्ता गर्न पठाउने
     const userId = localStorage.getItem("userId");
     if (!userId) {
       alert("अर्डर गर्नको लागि कृपया पहिले लगइन वा दर्ता गर्नुहोस्।");
@@ -81,12 +84,9 @@ const response = await fetch('http://192.168.1.65:8000/api/merchants_list');
       return;
     }
 
-    // म्यासेज तयार गर्ने
     const text = `नमस्ते ${shopName}, मलाई STN Networks मार्फत तपाईंको पसलको सामान मन पर्यो। के यो उपलब्ध छ?`;
     const encodedText = encodeURIComponent(text);
-    
-    // ह्वाट्सएप लिङ्क खोल्ने (नेपालको ९७७ कोड सहित)
-    const cleanPhone = phoneNumber.replace(/\D/g, ''); // नम्बरबाट अन्य चिन्ह हटाउने
+    const cleanPhone = phoneNumber.replace(/\D/g, ''); 
     window.open(`https://wa.me/977${cleanPhone}?text=${encodedText}`, '_blank');
   };
 
@@ -156,21 +156,16 @@ const response = await fetch('http://192.168.1.65:8000/api/merchants_list');
               key={merchant._id}
               className="group relative bg-slate-900/40 rounded-[35px] border border-white/5 overflow-hidden transition-all hover:border-cyan-500/40 shadow-2xl"
             >
-              {/* CCTV Container */}
               <div className="relative h-64 bg-black">
                 <div className="absolute top-4 left-4 z-10 flex gap-2">
                   <span className="bg-red-600 text-[9px] px-2 py-1 rounded-md font-black uppercase tracking-tighter shadow-lg">LIVE FEED</span>
                 </div>
-                
-                {/* पसलको फोटो वा भिडियो प्रिभ्यू */}
                 <div className="w-full h-full bg-gradient-to-br from-gray-800 to-black flex items-center justify-center italic text-gray-700 text-xs">
-                   Camera Connecting...
+                    Camera Connecting...
                 </div>
-
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0F0F0F] via-transparent to-transparent"></div>
               </div>
 
-              {/* Info & WhatsApp Action */}
               <div className="p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div>
@@ -214,6 +209,7 @@ const response = await fetch('http://192.168.1.65:8000/api/merchants_list');
         })}
       </div>
 
+      {/* Restaurant Modal */}
       <RestaurantModal 
         isOpen={isRestModalOpen} 
         onClose={() => setIsRestModalOpen(false)} 
