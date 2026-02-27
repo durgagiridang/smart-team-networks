@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 
 interface User {
   id: string;
@@ -15,6 +16,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  isAuthenticated: boolean;
   login: (phone: string) => Promise<void>;
   verifyOtp: (phone: string, otp: string) => Promise<boolean>;
   logout: () => void;
@@ -24,6 +26,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const API_URL = 'http://localhost:8000/api/auth';
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -31,7 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    // Check localStorage on mount
+    // Mount हुँदा localStorage बाट लोड गर्ने
     const savedToken = localStorage.getItem('stn_token');
     const savedUser = localStorage.getItem('stn_user');
     
@@ -45,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const validateToken = async (token: string) => {
     try {
-      const res = await fetch('http://localhost:8000/api/auth/me', {
+      const res = await fetch(`${API_URL}/me`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -58,30 +62,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const login = async (phone: string) => {
-    const res = await fetch('http://localhost:8000/api/auth/send-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone })
-    });
+    try {
+      const res = await fetch(`${API_URL}/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone })
+      });
 
-    const data = await res.json();
-    
-    if (!data.success) {
-      throw new Error(data.message);
+      const data = await res.json();
+      
+      if (!data.success) {
+        throw new Error(data.message);
+      }
+
+      // Development मा OTP देखाउने
+      if (data.devOtp) {
+        console.log('🔐 Your OTP:', data.devOtp);
+        toast(`OTP: ${data.devOtp}`, { icon: '🔐' });
+      }
+
+      return data;
+    } catch (error: any) {
+      toast.error(error.message || 'OTP पठाउन सकिएन');
+      throw error;
     }
-
-    // Development मा OTP देखाउने
-    if (data.devOtp) {
-      console.log('🔐 Your OTP:', data.devOtp);
-      alert(`Development OTP: ${data.devOtp}`);
-    }
-
-    return data;
   };
 
   const verifyOtp = async (phone: string, otp: string): Promise<boolean> => {
     try {
-      const res = await fetch('http://localhost:8000/api/auth/verify-otp', {
+      const res = await fetch(`${API_URL}/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, otp })
@@ -98,12 +107,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('userId', data.user.id);
         localStorage.setItem('userName', data.user.name || data.user.phone);
 
+        toast.success('लगइन सफल!');
         return true;
+      } else {
+        toast.error(data.message || 'OTP गलत छ');
+        return false;
       }
-      
-      return false;
     } catch (error) {
-      console.error('Verify OTP error:', error);
+      toast.error('सर्भरमा समस्या');
       return false;
     }
   };
@@ -115,30 +126,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('stn_user');
     localStorage.removeItem('userId');
     localStorage.removeItem('userName');
+    toast.success('लगआउट भयो');
     router.push('/login');
   };
 
   const updateProfile = async (profileData: any) => {
-    if (!token || !user) return;
+    if (!token || !user) {
+      toast.error('लगइन आवश्यक छ');
+      return;
+    }
 
-    const res = await fetch('http://localhost:8000/api/auth/profile', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        userId: user.id,
-        ...profileData
-      })
-    });
+    try {
+      const res = await fetch(`${API_URL}/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          ...profileData
+        })
+      });
 
-    const data = await res.json();
-    
-    if (data.success) {
-      const updatedUser = { ...user, ...data.user };
-      setUser(updatedUser);
-      localStorage.setItem('stn_user', JSON.stringify(updatedUser));
+      const data = await res.json();
+      
+      if (data.success) {
+        const updatedUser = { ...user, ...data.user };
+        setUser(updatedUser);
+        localStorage.setItem('stn_user', JSON.stringify(updatedUser));
+        toast.success('प्रोफाइल अपडेट भयो');
+      } else {
+        toast.error(data.message || 'अपडेट हुन सकेन');
+      }
+    } catch (error) {
+      toast.error('सर्भरमा समस्या');
     }
   };
 
@@ -146,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{
       user,
       token,
+      isAuthenticated: !!user,
       login,
       verifyOtp,
       logout,

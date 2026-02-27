@@ -5,23 +5,23 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 const categoryNames: Record<string, string> = {
-  food: 'Restaurant',
-  restaurant: 'Restaurant',
-  hotel: 'Hotel',
-  rider: 'Rider',
-  doctor: 'Hospital',
-  hospital: 'Hospital',
-  fashion: 'Fashion',
-  beauty: 'Beauty',
-  bakery: 'Bakery',
-  farmer: 'Farming',
-  farming: 'Farming',
+  food: 'रेस्टुरेन्ट',
+  restaurant: 'रेस्टुरेन्ट',
+  hotel: 'होटल',
+  rider: 'राइडर',
+  doctor: 'अस्पताल',
+  hospital: 'अस्पताल',
+  fashion: 'फेसन',
+  beauty: 'ब्युटी',
+  bakery: 'बेकरी',
+  farmer: 'कृषि',
+  farming: 'कृषि',
 };
 
 export default function CategoryPage() {
   const params = useParams();
   const router = useRouter();
-  const categoryId = params.id as string;
+  const categoryId = params.slug as string;  // ✅ params.id बाट params.slug मा बदलियो
   
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,9 +41,7 @@ export default function CategoryPage() {
       
       console.log("✅ API Response:", data);
       
-      // API returns array directly, not {success, merchants}
       if (Array.isArray(data)) {
-        // Filter by category (since API returns all)
         const filtered = data.filter((v: any) => 
           v.category?.toLowerCase() === categoryId?.toLowerCase()
         );
@@ -61,7 +59,7 @@ export default function CategoryPage() {
 
   return (
     <div className="min-h-screen bg-[#0F0F0F] text-white pb-20">
-      {/* Header */}
+      {/* हेडर */}
       <div className="p-4 bg-gradient-to-br from-cyan-900 via-black to-cyan-900">
         <div className="flex items-center gap-4">
           <button 
@@ -76,17 +74,17 @@ export default function CategoryPage() {
         </div>
       </div>
 
-      {/* Vendors List */}
+      {/* विक्रेताहरूको सूची */}
       <div className="p-4 space-y-4">
         {loading ? (
           <div className="text-center py-10">
             <div className="inline-block w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="mt-2 text-gray-400">Loading...</p>
+            <p className="mt-2 text-gray-400">लोड हुँदैछ...</p>
           </div>
         ) : vendors.length === 0 ? (
           <div className="text-center py-10">
-            <p className="text-gray-500 text-lg">कुनै vendor छैन</p>
-            <p className="text-gray-600 text-sm mt-1">यस category मा अहिले कुनै पसल छैन</p>
+            <p className="text-gray-500 text-lg">कुनै पसल छैन</p>
+            <p className="text-gray-600 text-sm mt-1">यस श्रेणीमा अहिले कुनै विक्रेता छैन</p>
           </div>
         ) : (
           vendors.map((vendor: any) => (
@@ -116,7 +114,7 @@ export default function CategoryPage() {
                     {vendor.isLive && (
                       <span className="text-red-500 text-xs flex items-center gap-1">
                         <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                        LIVE
+                        लाइभ
                       </span>
                     )}
                     {vendor.rating && (

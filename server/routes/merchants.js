@@ -1,36 +1,46 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
+const Merchant = require('../models/Merchant');
 
-// Merchant Schema
-const merchantSchema = new mongoose.Schema({
-  name: String,
-  email: String,
-  phone: String,
-  address: String,
-  createdAt: { type: Date, default: Date.now }
-});
-
-const Merchant = mongoose.model('Merchant', merchantSchema);
-
-// GET all merchants
+// सबै merchants get गर्ने
 router.get('/', async (req, res) => {
   try {
-    const merchants = await Merchant.find();
+    const { category } = req.query;
+    let query = {};
+    
+    if (category) {
+      query.category = { $regex: category, $options: 'i' };
+    }
+    
+    const merchants = await Merchant.find(query);
     res.json(merchants);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// POST new merchant
-router.post('/', async (req, res) => {
+// ✅ Single merchant get गर्ने - यो थप्नुहोस्!
+router.get('/:id', async (req, res) => {
   try {
-    const merchant = new Merchant(req.body);
-    await merchant.save();
-    res.status(201).json(merchant);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+    const merchant = await Merchant.findById(req.params.id);
+    
+    if (!merchant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Merchant not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      merchant
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 });
 

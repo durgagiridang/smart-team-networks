@@ -23,10 +23,12 @@ mongoose.connect(MONGODB_URI)
 
 // Routes
 const authRoutes = require('./routes/auth');
+const productRoutes = require('./routes/products');
 const merchantRoutes = require('./routes/merchants');
 const orderRoutes = require('./routes/orders');
 
 app.use('/api/auth', authRoutes);
+app.use('/api/products', productRoutes);
 app.use('/api/merchants', merchantRoutes);
 app.use('/api/vendors', merchantRoutes);
 app.use('/api/orders', orderRoutes);

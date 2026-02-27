@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
@@ -27,7 +26,7 @@ const userSchema = new mongoose.Schema({
       default: 'Point'
     },
     coordinates: {
-      type: [Number], // [longitude, latitude]
+      type: [Number],
       default: [0, 0]
     },
     address: {
@@ -54,4 +53,5 @@ const userSchema = new mongoose.Schema({
 
 userSchema.index({ location: '2dsphere' });
 
+// ✅ यहीँ सम्म मात्र! तल केही नलेख्नुहोस्
 module.exports = mongoose.model('User', userSchema);

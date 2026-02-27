@@ -1,71 +1,93 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const mongoose = require('mongoose');
-const Product = require('../src/models/Product.model');
-const Merchant = require('../src/models/Merchant.model');
+const path = require('path');
+
+// ✅ सही path
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 async function seed() {
   try {
-    await mongoose.connect('mongodb+srv://smart-team:stn-nepal123@cluster0.4kapzvk.mongodb.net/smart-team-networks');
+    // MongoDB जडान
+    const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://smart-team:stn-nepal123@cluster0.4kapzvk.mongodb.net/smart-team-networks';
+    
+    await mongoose.connect(MONGODB_URI);
     console.log('✅ MongoDB Connected');
 
-    // Find the auto-created merchant
-    const merchant = await Merchant.findOne({ email: 'test123@test.com' });
+    // Models लोड गर्ने
+    const Product = require('./models/Product');
+    const Merchant = require('./models/Merchant');
+
+    // सबैभन्दा पहिलो merchant खोज्ने
+    const merchant = await Merchant.findOne();
     
     if (!merchant) {
-      console.log('❌ Merchant not found');
+      console.log('❌ कुनै पसल छैन। पहिले पसल बनाउनुहोस्।');
       process.exit(1);
     }
 
-    console.log('🎯 Found merchant:', merchant._id);
+    console.log('🎯 पसल फेला पर्यो:', merchant.business_name, '-', merchant._id);
 
-    // Delete old products
-    await Product.deleteMany({ vendor: merchant._id });
-    console.log('🗑️ Old products deleted');
+    // पुराना उत्पादनहरू हटाउने
+    await Product.deleteMany({ vendorId: merchant._id.toString() });
+    console.log('🗑️ पुराना उत्पादनहरू हटाइयो');
 
-    // Create products
+    // नयाँ उत्पादनहरू बनाउने
     const products = await Product.insertMany([
       {
-        vendor: merchant._id,
-        name: 'मोमो (Momo)',
+        vendorId: merchant._id.toString(),
+        name: 'चिकन मोमो',
         price: 150,
-        inventory: { quantity: 50 },
+        quantity: 50,
         category: 'Food',
+        image: '🥟',
         status: 'active',
-        description: 'Delicious steamed momo'
+        description: 'ताजा चिकन मोमो'
       },
       {
-        vendor: merchant._id,
-        name: 'चाउमीन (Chowmein)',
+        vendorId: merchant._id.toString(),
+        name: 'भेज चाउमिन',
         price: 120,
-        inventory: { quantity: 30 },
+        quantity: 30,
         category: 'Food',
+        image: '🍜',
         status: 'active'
       },
       {
-        vendor: merchant._id,
-        name: 'पिज्जा (Pizza)',
+        vendorId: merchant._id.toString(),
+        name: 'पिज्जा',
         price: 450,
-        inventory: { quantity: 15 },
+        quantity: 15,
         category: 'Food',
+        image: '🍕',
         status: 'active'
       },
       {
-        vendor: merchant._id,
-        name: 'बर्गर (Burger)',
+        vendorId: merchant._id.toString(),
+        name: 'बर्गर',
         price: 250,
-        inventory: { quantity: 20 },
+        quantity: 20,
         category: 'Food',
+        image: '🍔',
+        status: 'active'
+      },
+      {
+        vendorId: merchant._id.toString(),
+        name: 'कोल्ड ड्रिंक',
+        price: 80,
+        quantity: 100,
+        category: 'Beverage',
+        image: '🥤',
         status: 'active'
       }
     ]);
 
-    console.log('✅', products.length, 'products created successfully!');
-    console.log('📝 Products:');
-    products.forEach(p => console.log('  -', p.name, 'Rs.', p.price));
+    console.log('✅', products.length, 'उत्पादनहरू सफलतापूर्वक बनाइयो!');
+    console.log('📝 उत्पादनहरू:');
+    products.forEach(p => console.log('  -', p.name, 'रु.', p.price));
 
     process.exit(0);
   } catch (err) {
-    console.error('❌ Error:', err);
+    console.error('❌ Error:', err.message);
     process.exit(1);
   }
 }
