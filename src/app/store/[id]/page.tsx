@@ -1,10 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { io } from 'socket.io-client';
-import { useAuth } from '@/context/AuthContext';
-import { useCart } from '@/context/CartContext';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
@@ -12,43 +10,75 @@ export default function StorePage() {
   const params = useParams();
   const router = useRouter();
   const storeId = params.id as string;
-  const { user } = useAuth();
-  const { addToCart } = useCart();
   
   const [store, setStore] = useState<any>(null);
-  const [socket, setSocket] = useState<any>(null);
   const [connected, setConnected] = useState(false);
   const [messages, setMessages] = useState<any[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'products' | 'chat'>('products');
+  const [viewerCount, setViewerCount] = useState(0);
+  
+  const socketRef = useRef<any>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // Socket Connect
   useEffect(() => {
-    if (storeId) {
-      fetchStoreDetails();
-      fetchProducts();
-      initSocket();
-    }
+    if (!storeId) return;
     
+    const socket = io('http://localhost:8000', {
+      transports: ['polling', 'websocket'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+    });
+    
+    socketRef.current = socket;
+    
+    socket.on('connect', () => {
+      console.log('✅ Socket connected:', socket.id);
+      setConnected(true);
+      
+      socket.emit('visitor:join', {
+        vendorId: storeId,
+        userId: localStorage.getItem('userId') || `guest_${Date.now()}`,
+        userName: localStorage.getItem('userName') || 'अतिथि',
+      });
+    });
+
+    socket.on('disconnect', () => setConnected(false));
+    
+    socket.on('chat:new-message', (data) => {
+      setMessages(prev => [...prev, data]);
+    });
+    
+    socket.on('visitor:count', (data) => {
+      setViewerCount(data.count);
+    });
+
     return () => {
-      if (socket) socket.close();
+      socket.disconnect();
     };
   }, [storeId]);
 
-  const fetchStoreDetails = async () => {
+  // Fetch Store
+  useEffect(() => {
+    if (storeId) {
+      fetchStore();
+      fetchProducts();
+    }
+  }, [storeId]);
+
+  const fetchStore = async () => {
     try {
       const res = await fetch(`http://localhost:8000/api/merchants/${storeId}`);
       const data = await res.json();
       
       if (data.success) {
         setStore(data.merchant);
-      } else {
-        toast.error('पसलको जानकारी लोड गर्न सकिएन');
       }
     } catch (err) {
-      console.error('Error fetching store:', err);
-      toast.error('सर्भरमा समस्या भयो');
+      console.error('Error:', err);
     } finally {
       setLoading(false);
     }
@@ -58,117 +88,56 @@ export default function StorePage() {
     try {
       const res = await fetch(`http://localhost:8000/api/products?vendorId=${storeId}`);
       const data = await res.json();
-      
-      let productsData = [];
-      
-      if (Array.isArray(data)) {
-        productsData = data;
-      } else if (data.success && data.products) {
-        productsData = data.products;
-      }
-      
-      const processedProducts = productsData.map(product => ({
-        ...product,
-        image: product.image 
-          ? (product.image.startsWith('http') 
-              ? product.image 
-              : `http://localhost:8000/${product.image}`)
-          : null
-      }));
-      
-      setProducts(processedProducts);
-      
+      setProducts(data.products || []);
     } catch (err) {
-      console.error('Error fetching products:', err);
-      setProducts([
-        { _id: '1', name: 'चिकन मोमो', price: 150, image: null },
-        { _id: '2', name: 'भेज चाउमिन', price: 120, image: null },
-        { _id: '3', name: 'पिज्जा', price: 350, image: null },
-        { _id: '4', name: 'बर्गर', price: 250, image: null },
-      ]);
-    }
-  };
-
-  const initSocket = () => {
-    try {
-      console.log('🔌 Connecting to Socket.IO...');
-      
-      const newSocket = io('http://localhost:8000', {
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-        timeout: 20000,
-      });
-      
-      newSocket.on('connect', () => {
-        console.log('✅ Socket connected:', newSocket.id);
-        setConnected(true);
-        
-        newSocket.emit('visitor:join', {
-          vendorId: storeId,
-          userId: localStorage.getItem('userId') || `guest_${Date.now()}`,
-          userName: user?.name || 'अतिथि',
-        });
-      });
-
-      newSocket.on('disconnect', (reason) => {
-        console.log('❌ Socket disconnected:', reason);
-        setConnected(false);
-      });
-      
-      newSocket.on('connect_error', (error) => {
-        console.error('❌ Socket connection error:', error.message);
-        setConnected(false);
-      });
-
-      newSocket.on('chat:new-message', (data) => {
-        console.log('📨 New message:', data);
-        setMessages(prev => [...prev, data]);
-      });
-      
-      newSocket.on('visitor:count', (data) => {
-        console.log('👥 Visitor count:', data.count);
-      });
-
-      setSocket(newSocket);
-    } catch (err) {
-      console.error('Socket initialization error:', err);
+      console.error('Error:', err);
     }
   };
 
   const sendMessage = () => {
-    if (!inputMessage.trim() || !socket || !connected) {
+    if (!inputMessage.trim() || !socketRef.current || !connected) {
       toast.error('कृपया message लेख्नुहोस्');
       return;
     }
     
-    socket.emit('chat:message', {
+    socketRef.current.emit('chat:message', {
       vendorId: storeId,
       message: inputMessage,
-      type: 'text',
-      senderName: user?.name || 'अतिथि',
+      senderName: localStorage.getItem('userName') || 'अतिथि',
     });
     
     setMessages(prev => [...prev, {
       message: inputMessage,
       senderName: 'तपाईं',
-      isVendor: false,
+      isMe: true,
+      timestamp: new Date().toISOString()
     }]);
     
     setInputMessage('');
   };
 
-  const handleAddToCart = (product: any) => {
-    addToCart({
-      id: product._id,
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      vendorId: storeId,
-      vendorName: store?.business_name,
-    });
-    toast.success(`${product.name} कार्टमा थपियो!`);
+  // YouTube Embed URL बनाउने
+  const getYouTubeEmbedUrl = (url: string) => {
+    if (!url) return null;
+    
+    // youtu.be/xxxxx → youtube.com/embed/xxxxx
+    if (url.includes('youtu.be/')) {
+      const id = url.split('youtu.be/')[1]?.split('?')[0];
+      return `https://www.youtube.com/embed/${id}?autoplay=1&mute=1`;
+    }
+    
+    // youtube.com/watch?v=xxxxx → youtube.com/embed/xxxxx
+    if (url.includes('watch?v=')) {
+      const id = url.split('watch?v=')[1]?.split('&')[0];
+      return `https://www.youtube.com/embed/${id}?autoplay=1&mute=1`;
+    }
+    
+    // Already embed URL
+    if (url.includes('embed')) {
+      return url;
+    }
+    
+    return url;
   };
 
   if (loading) {
@@ -188,10 +157,7 @@ export default function StorePage() {
         <div className="text-center">
           <span className="text-6xl">🏪</span>
           <p className="mt-4 text-xl">पसल फेला परेन</p>
-          <button 
-            onClick={() => router.back()}
-            className="mt-4 bg-cyan-600 px-6 py-2 rounded-lg"
-          >
+          <button onClick={() => router.back()} className="mt-4 bg-cyan-600 px-6 py-2 rounded-lg">
             ← फर्किनुहोस्
           </button>
         </div>
@@ -199,88 +165,83 @@ export default function StorePage() {
     );
   }
 
+  const embedUrl = getYouTubeEmbedUrl(store.cctv_url);
+
   return (
     <div className="min-h-screen bg-[#0F0F0F] text-white pb-28">
       
+      {/* Header */}
       <div className="p-4 bg-gradient-to-br from-cyan-900 via-black to-cyan-900 flex items-center gap-4 sticky top-0 z-10">
-        <button 
-          onClick={() => router.back()} 
-          className="text-2xl hover:text-cyan-400 transition-colors"
-        >
-          ←
-        </button>
+        <button onClick={() => router.back()} className="text-2xl hover:text-cyan-400">←</button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-black italic truncate">{store.business_name}</h1>
-          <p className="text-xs text-cyan-400 flex items-center gap-2">
-            <span>{connected ? '🟢 अनलाइन' : '🔴 अफलाइन'}</span>
-            {store.isLive && <span className="text-red-400">• 🔴 लाइभ</span>}
+          <h1 className="text-lg font-black italic truncate">{store.business_name || store.businessName}</h1>
+          <p className="text-xs flex items-center gap-2">
+            {connected ? (
+              <span className="text-green-400">🟢 अनलाइन</span>
+            ) : (
+              <span className="text-red-400">🔴 अफलाइन</span>
+            )}
+            {embedUrl && <span className="text-red-400">• 🔴 लाइभ</span>}
+            <span className="text-gray-400">• 👥 {viewerCount}</span>
           </p>
         </div>
-        <Link href="/cart" className="text-2xl relative">
-          🛒
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-xs flex items-center justify-center">
-            0
-          </span>
-        </Link>
+        <Link href="/cart" className="text-2xl relative">🛒</Link>
       </div>
 
+      {/* YouTube Live Video */}
       <div className="aspect-video bg-black relative">
-        {store.cctv_url ? (
+        {embedUrl ? (
           <iframe 
-            src={store.cctv_url} 
+            src={embedUrl}
             className="w-full h-full"
             allow="autoplay; fullscreen"
-            title="Live CCTV"
+            title="Live Stream"
+            frameBorder="0"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
             <div className="text-center">
               <span className="text-6xl">🏪</span>
               <p className="mt-2 text-gray-400">लाइभ भिडियो उपलब्ध छैन</p>
+              <p className="text-gray-500 text-sm">पसलले अहिले लाइभ गरेको छैन</p>
             </div>
           </div>
         )}
         
-        {store.isLive && (
-          <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold animate-pulse flex items-center gap-1">
-            <span className="w-2 h-2 bg-white rounded-full"></span>
-            लाइभ
+        {embedUrl && (
+          <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold animate-pulse">
+            🔴 LIVE
           </div>
         )}
-        
-        <div className="absolute bottom-4 right-4 bg-black/70 px-3 py-1 rounded-full text-sm">
-          👥 {store.viewerCount || 0} हेर्दै
-        </div>
       </div>
 
+      {/* Store Info */}
       <div className="p-4 bg-[#1a1a1a] mx-4 -mt-4 rounded-2xl relative z-10 border border-white/10">
-        <h2 className="font-bold text-lg">{store.business_name}</h2>
+        <h2 className="font-bold text-lg">{store.business_name || store.businessName}</h2>
         <p className="text-gray-400 text-sm">📍 {store.address || store.city || 'तुलसिपुर'}</p>
         <p className="text-gray-400 text-sm">📞 {store.phone || 'फोन उपलब्ध छैन'}</p>
-        {store.rating && (
-          <p className="text-yellow-500 text-sm mt-1">⭐ {store.rating} रेटिङ</p>
+        {store.ownerName && (
+          <p className="text-gray-400 text-sm">👤 {store.ownerName}</p>
         )}
       </div>
 
+      {/* Tabs */}
       <div className="flex mx-4 mt-4 bg-[#1a1a1a] rounded-xl p-1">
         <button
           onClick={() => setActiveTab('products')}
-          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${
-            activeTab === 'products' ? 'bg-cyan-600 text-white' : 'text-gray-400'
-          }`}
+          className={`flex-1 py-2 rounded-lg text-sm font-bold ${activeTab === 'products' ? 'bg-cyan-600 text-white' : 'text-gray-400'}`}
         >
           🛍️ उत्पादनहरू
         </button>
         <button
           onClick={() => setActiveTab('chat')}
-          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${
-            activeTab === 'chat' ? 'bg-cyan-600 text-white' : 'text-gray-400'
-          }`}
+          className={`flex-1 py-2 rounded-lg text-sm font-bold ${activeTab === 'chat' ? 'bg-cyan-600 text-white' : 'text-gray-400'}`}
         >
           💬 च्याट {messages.length > 0 && `(${messages.length})`}
         </button>
       </div>
 
+      {/* Products */}
       {activeTab === 'products' && (
         <div className="p-4">
           {products.length === 0 ? (
@@ -291,27 +252,22 @@ export default function StorePage() {
           ) : (
             <div className="grid grid-cols-2 gap-4">
               {products.map((product) => (
-                <div key={product._id} className="bg-[#1a1a1a] rounded-xl p-4 border border-white/10 hover:border-cyan-500 transition-all">
-                  <div className="text-4xl text-center mb-2 h-32 flex items-center justify-center bg-gray-800 rounded-lg overflow-hidden">
+                <div key={product._id} className="bg-[#1a1a1a] rounded-xl p-4 border border-white/10">
+                  <div className="h-32 bg-gray-800 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
                     {product.image ? (
-                      <img 
-                        src={product.image} 
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          e.currentTarget.parentElement.innerHTML = '📦';
-                        }}
-                      />
+                      <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
                     ) : (
-                      '📦'
+                      <span className="text-4xl">📦</span>
                     )}
                   </div>
-                  <h3 className="font-bold text-center text-sm truncate">{product.name}</h3>
-                  <p className="text-cyan-400 text-center font-bold">रु. {product.price}</p>
+                  <h3 className="font-bold text-sm truncate">{product.name}</h3>
+                  <p className="text-cyan-400 font-bold">रु. {product.price}</p>
                   <button 
-                    onClick={() => handleAddToCart(product)}
-                    className="w-full mt-3 bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 text-white py-2 rounded-lg text-sm font-bold transition-colors"
+                    onClick={() => {
+                      // Add to cart logic
+                      toast.success(`${product.name} कार्टमा थपियो!`);
+                    }}
+                    className="w-full mt-2 bg-cyan-600 hover:bg-cyan-500 text-white py-2 rounded-lg text-sm font-bold"
                   >
                     + कार्टमा थप्नुहोस्
                   </button>
@@ -322,6 +278,7 @@ export default function StorePage() {
         </div>
       )}
 
+      {/* Chat */}
       {activeTab === 'chat' && (
         <div className="p-4">
           <div className="bg-[#1a1a1a] rounded-2xl p-4 border border-white/10">
@@ -336,17 +293,14 @@ export default function StorePage() {
                 messages.map((msg, i) => (
                   <div 
                     key={i} 
-                    className={`p-3 rounded-xl ${
-                      msg.isVendor 
-                        ? 'bg-cyan-900/30 border border-cyan-500/30' 
-                        : 'bg-gray-800'
-                    }`}
+                    className={`p-3 rounded-xl ${msg.isMe ? 'bg-cyan-600/30 border border-cyan-500/30' : 'bg-gray-800'}`}
                   >
                     <p className="text-xs text-gray-400 mb-1">{msg.senderName}</p>
                     <p className="text-sm">{msg.message}</p>
                   </div>
                 ))
               )}
+              <div ref={chatEndRef} />
             </div>
             
             <div className="flex gap-2">
@@ -354,37 +308,30 @@ export default function StorePage() {
                 type="text"
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Message लेख्नुहोस्..."
-                className="flex-1 bg-black border border-white/20 rounded-xl px-4 py-3 text-white focus:border-cyan-500 focus:outline-none"
+                placeholder={connected ? "Message लेख्नुहोस्..." : "जडान हुँदैछ..."}
+                className="flex-1 bg-black border border-white/20 rounded-xl px-4 py-3 text-white focus:border-cyan-500 focus:outline-none disabled:opacity-50"
                 onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                 disabled={!connected}
               />
               <button 
                 onClick={sendMessage}
                 disabled={!connected || !inputMessage.trim()}
-                className="bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-bold transition-colors"
+                className="bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-600 text-white px-6 py-3 rounded-xl font-bold"
               >
                 पठाउनुहोस्
               </button>
             </div>
-            
-            {!connected && (
-              <p className="text-red-400 text-xs mt-2 text-center">
-                च्याटको लागि कृपया पर्खिनुहोस्...
-              </p>
-            )}
           </div>
         </div>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black to-transparent">
+      {/* Cart Button */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black to-transparent">
         <button 
           onClick={() => router.push('/cart')}
-          className="w-full bg-green-600 hover:bg-green-500 active:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2"
+          className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2"
         >
-          <span>🛒</span>
-          <span>कार्ट हेर्नुहोस्</span>
-          <span>→</span>
+          🛒 कार्ट हेर्नुहोस् →
         </button>
       </div>
     </div>

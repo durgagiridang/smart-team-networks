@@ -1,10 +1,9 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
-// 🔥 Types
 interface StoreData {
   businessName: string;
   category: string;
@@ -18,18 +17,11 @@ interface StoreData {
   ownerName?: string;
 }
 
-interface ApiResponse {
-  success: boolean;
-  message: string;
-  storeId?: string;
-}
-
 export default function StoreBuilder() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [previewMode, setPreviewMode] = useState(false);
 
   const [storeData, setStoreData] = useState<StoreData>({
     businessName: "",
@@ -44,7 +36,6 @@ export default function StoreBuilder() {
     ownerName: ""
   });
 
-  // 🔥 Form Validation
   const validateStep = (currentStep: number): boolean => {
     setError(null);
     
@@ -73,10 +64,6 @@ export default function StoreBuilder() {
           setError("CCTV लिङ्क आवश्यक छ (YouTube Live)");
           return false;
         }
-        if (!storeData.cctvLink.includes('youtube.com') && !storeData.cctvLink.includes('youtu.be')) {
-          setError("मान्य YouTube लिङ्क हाल्नुहोस्");
-          return false;
-        }
         return true;
         
       case 3:
@@ -95,7 +82,6 @@ export default function StoreBuilder() {
     }
   };
 
-  // 🔥 Backend मा Save गर्ने
   const handleSubmit = async () => {
     if (!validateStep(3)) return;
     
@@ -103,23 +89,20 @@ export default function StoreBuilder() {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8000/api/vendor/register', {
+      const response = await fetch('http://localhost:8000/api/merchants/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...storeData,
-          role: 'merchant',
-          createdAt: new Date().toISOString()
-        }),
+        body: JSON.stringify(storeData),
       });
 
-      const data: ApiResponse = await response.json();
+      const data = await response.json();
 
       if (data.success) {
         alert("🎉 बधाई छ! तपाईँको 'Mini Digital Showroom' तयार भयो!");
-        router.push(`/showroom/${data.storeId}`);
+        // StorePage मा जाने
+        router.push(`/store/${data.storeId}`);
       } else {
         setError(data.message || "केही गलत भयो");
       }
@@ -131,16 +114,10 @@ export default function StoreBuilder() {
     }
   };
 
-  // 🔥 Next Step जानु अघि Validate
   const nextStep = () => {
     if (validateStep(step)) {
       setStep(step + 1);
     }
-  };
-
-  // 🔥 Preview Mode
-  const togglePreview = () => {
-    setPreviewMode(!previewMode);
   };
 
   return (
