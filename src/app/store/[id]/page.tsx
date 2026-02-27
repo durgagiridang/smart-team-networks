@@ -36,7 +36,6 @@ export default function StorePage() {
     };
   }, [storeId]);
 
-  // पसलको विवरण ल्याउने
   const fetchStoreDetails = async () => {
     try {
       const res = await fetch(`http://localhost:8000/api/merchants/${storeId}`);
@@ -55,37 +54,57 @@ export default function StorePage() {
     }
   };
 
-  // उत्पादनहरू ल्याउने
   const fetchProducts = async () => {
     try {
       const res = await fetch(`http://localhost:8000/api/products?vendorId=${storeId}`);
       const data = await res.json();
       
+      let productsData = [];
+      
       if (Array.isArray(data)) {
-        setProducts(data);
+        productsData = data;
       } else if (data.success && data.products) {
-        setProducts(data.products);
-      } else {
-        // डेमो उत्पादनहरू (API नभएसम्म)
-        setProducts([
-          { _id: '1', name: 'चिकन मोमो', price: 150, image: '🥟' },
-          { _id: '2', name: 'भेज चाउमिन', price: 120, image: '🍜' },
-          { _id: '3', name: 'पिज्जा', price: 350, image: '🍕' },
-          { _id: '4', name: 'बर्गर', price: 250, image: '🍔' },
-        ]);
+        productsData = data.products;
       }
+      
+      const processedProducts = productsData.map(product => ({
+        ...product,
+        image: product.image 
+          ? (product.image.startsWith('http') 
+              ? product.image 
+              : `http://localhost:8000/${product.image}`)
+          : null
+      }));
+      
+      setProducts(processedProducts);
+      
     } catch (err) {
       console.error('Error fetching products:', err);
+      setProducts([
+        { _id: '1', name: 'चिकन मोमो', price: 150, image: null },
+        { _id: '2', name: 'भेज चाउमिन', price: 120, image: null },
+        { _id: '3', name: 'पिज्जा', price: 350, image: null },
+        { _id: '4', name: 'बर्गर', price: 250, image: null },
+      ]);
     }
   };
 
-  // Socket जडान गर्ने
   const initSocket = () => {
     try {
-      const newSocket = io('http://localhost:8000');
+      console.log('🔌 Connecting to Socket.IO...');
+      
+      const newSocket = io('http://localhost:8000', {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        timeout: 20000,
+      });
       
       newSocket.on('connect', () => {
+        console.log('✅ Socket connected:', newSocket.id);
         setConnected(true);
+        
         newSocket.emit('visitor:join', {
           vendorId: storeId,
           userId: localStorage.getItem('userId') || `guest_${Date.now()}`,
@@ -93,21 +112,31 @@ export default function StorePage() {
         });
       });
 
-      newSocket.on('disconnect', () => {
+      newSocket.on('disconnect', (reason) => {
+        console.log('❌ Socket disconnected:', reason);
+        setConnected(false);
+      });
+      
+      newSocket.on('connect_error', (error) => {
+        console.error('❌ Socket connection error:', error.message);
         setConnected(false);
       });
 
       newSocket.on('chat:new-message', (data) => {
+        console.log('📨 New message:', data);
         setMessages(prev => [...prev, data]);
+      });
+      
+      newSocket.on('visitor:count', (data) => {
+        console.log('👥 Visitor count:', data.count);
       });
 
       setSocket(newSocket);
     } catch (err) {
-      console.error('Socket error:', err);
+      console.error('Socket initialization error:', err);
     }
   };
 
-  // Message पठाउने
   const sendMessage = () => {
     if (!inputMessage.trim() || !socket || !connected) {
       toast.error('कृपया message लेख्नुहोस्');
@@ -121,7 +150,6 @@ export default function StorePage() {
       senderName: user?.name || 'अतिथि',
     });
     
-    // आफ्नो message पनि देखाउने
     setMessages(prev => [...prev, {
       message: inputMessage,
       senderName: 'तपाईं',
@@ -131,7 +159,6 @@ export default function StorePage() {
     setInputMessage('');
   };
 
-  // कार्टमा थप्ने
   const handleAddToCart = (product: any) => {
     addToCart({
       id: product._id,
@@ -144,7 +171,6 @@ export default function StorePage() {
     toast.success(`${product.name} कार्टमा थपियो!`);
   };
 
-  // लोडिङ स्क्रिन
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0F0F0F] text-white flex items-center justify-center">
@@ -156,7 +182,6 @@ export default function StorePage() {
     );
   }
   
-  // पसल फेला नपरेमा
   if (!store) {
     return (
       <div className="min-h-screen bg-[#0F0F0F] text-white flex items-center justify-center">
@@ -177,7 +202,6 @@ export default function StorePage() {
   return (
     <div className="min-h-screen bg-[#0F0F0F] text-white pb-28">
       
-      {/* हेडर */}
       <div className="p-4 bg-gradient-to-br from-cyan-900 via-black to-cyan-900 flex items-center gap-4 sticky top-0 z-10">
         <button 
           onClick={() => router.back()} 
@@ -200,7 +224,6 @@ export default function StorePage() {
         </Link>
       </div>
 
-      {/* लाइभ CCTV */}
       <div className="aspect-video bg-black relative">
         {store.cctv_url ? (
           <iframe 
@@ -225,13 +248,11 @@ export default function StorePage() {
           </div>
         )}
         
-        {/* Viewer count */}
         <div className="absolute bottom-4 right-4 bg-black/70 px-3 py-1 rounded-full text-sm">
           👥 {store.viewerCount || 0} हेर्दै
         </div>
       </div>
 
-      {/* पसलको जानकारी */}
       <div className="p-4 bg-[#1a1a1a] mx-4 -mt-4 rounded-2xl relative z-10 border border-white/10">
         <h2 className="font-bold text-lg">{store.business_name}</h2>
         <p className="text-gray-400 text-sm">📍 {store.address || store.city || 'तुलसिपुर'}</p>
@@ -241,7 +262,6 @@ export default function StorePage() {
         )}
       </div>
 
-      {/* ट्याब्स */}
       <div className="flex mx-4 mt-4 bg-[#1a1a1a] rounded-xl p-1">
         <button
           onClick={() => setActiveTab('products')}
@@ -261,7 +281,6 @@ export default function StorePage() {
         </button>
       </div>
 
-      {/* उत्पादनहरू */}
       {activeTab === 'products' && (
         <div className="p-4">
           {products.length === 0 ? (
@@ -273,7 +292,21 @@ export default function StorePage() {
             <div className="grid grid-cols-2 gap-4">
               {products.map((product) => (
                 <div key={product._id} className="bg-[#1a1a1a] rounded-xl p-4 border border-white/10 hover:border-cyan-500 transition-all">
-                  <div className="text-4xl text-center mb-2">{product.image || '📦'}</div>
+                  <div className="text-4xl text-center mb-2 h-32 flex items-center justify-center bg-gray-800 rounded-lg overflow-hidden">
+                    {product.image ? (
+                      <img 
+                        src={product.image} 
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.parentElement.innerHTML = '📦';
+                        }}
+                      />
+                    ) : (
+                      '📦'
+                    )}
+                  </div>
                   <h3 className="font-bold text-center text-sm truncate">{product.name}</h3>
                   <p className="text-cyan-400 text-center font-bold">रु. {product.price}</p>
                   <button 
@@ -289,7 +322,6 @@ export default function StorePage() {
         </div>
       )}
 
-      {/* च्याट */}
       {activeTab === 'chat' && (
         <div className="p-4">
           <div className="bg-[#1a1a1a] rounded-2xl p-4 border border-white/10">
@@ -345,7 +377,6 @@ export default function StorePage() {
         </div>
       )}
 
-      {/* कार्ट हेर्ने बटन */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black to-transparent">
         <button 
           onClick={() => router.push('/cart')}
